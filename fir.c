@@ -1,0 +1,86 @@
+#include "fir.h"
+
+fir_filter_t *fir_init(int16_t *pusCoefs, uint32_t ulTaps)
+{
+    if(!pusCoefs)
+        return NULL;
+
+    if(!ulTaps)
+        return NULL;
+
+    fir_filter_t *pFilter = (fir_filter_t *)malloc(sizeof(fir_filter_t));
+
+    if(!pFilter)
+        return NULL;
+
+    memset(pFilter, 0, sizeof(fir_filter_t));
+
+    pFilter->psData = (int16_t *)malloc(sizeof(int16_t) * ulTaps);
+
+    if(!pFilter->psData)
+    {
+        free(pFilter);
+
+        return NULL;
+    }
+
+    memset(pFilter->psData, 0, sizeof(int16_t) * ulTaps);
+
+    pFilter->psCoefs = (int16_t *)malloc(sizeof(int16_t) * ulTaps);
+
+    if(!pFilter->psCoefs)
+    {
+        free(pFilter->psData);
+        free(pFilter);
+
+        return NULL;
+    }
+
+    memcpy(pFilter->psCoefs, pusCoefs, sizeof(int16_t) * ulTaps);
+
+    pFilter->ulTaps = ulTaps;
+
+    return pFilter;
+}
+void fir_cleanup(fir_filter_t *pFilter)
+{
+    if(!pFilter)
+        return;
+
+    if(pFilter->psData)
+        free(pFilter->psData);
+
+    if(pFilter->psCoefs)
+        free(pFilter->psCoefs);
+
+    free(pFilter);
+}
+int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample)
+{
+    if(!pFilter)
+        return 0;
+
+    if(!pFilter->psData)
+        return 0;
+
+    if(!pFilter->psCoefs)
+        return 0;
+
+    if(pFilter->ulLastIndex >= pFilter->ulTaps)
+        pFilter->ulLastIndex = 0;
+
+    pFilter->psData[pFilter->ulLastIndex++] = sSample;
+
+    int64_t acullAccumulator = 0;
+
+    uint32_t ulIndex = pFilter->ulLastIndex;
+
+    for(uint32_t i = 0; i < pFilter->ulTaps; i++)
+    {
+        ulIndex = ulIndex ? ulIndex - 1 : pFilter->ulTaps - 1;
+
+        acullAccumulator += (int64_t)pFilter->psData[ulIndex] * pFilter->psCoefs[i];
+    }
+
+    return acullAccumulator >> 16;
+}
