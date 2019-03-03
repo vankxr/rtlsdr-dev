@@ -14,7 +14,7 @@
 #define AUDIO_RATE          (44.1 * 1000) // 44.1 kHz
 #define CHANNEL_CARRIER     (100.1 * 1000000) // 100.1 MHz
 #define CHANNEL_BANDWIDTH   (200 * 1000) // 200 kHz
-#define LO_FREQUENCY        (250 * 1000) // 250 kHz (to avoid DC spike)
+#define LO_FREQUENCY        (300 * 1000) // 300 kHz (to avoid DC spike)
 #define SAMPLE_RATE         (1.2 * 1000000) // 1.2 Msps (RTL-SDR sample rate)
 #define SAMPLE_FREQUENCY    (CHANNEL_CARRIER + LO_FREQUENCY)
 

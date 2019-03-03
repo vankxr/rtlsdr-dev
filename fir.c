@@ -71,16 +71,15 @@ int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample)
 
     pFilter->psData[pFilter->ulLastIndex++] = sSample;
 
-    int64_t acullAccumulator = 0;
-
+    int64_t ullAccumulator = 0;
     uint32_t ulIndex = pFilter->ulLastIndex;
 
     for(uint32_t i = 0; i < pFilter->ulTaps; i++)
     {
         ulIndex = ulIndex ? ulIndex - 1 : pFilter->ulTaps - 1;
 
-        acullAccumulator += (int64_t)pFilter->psData[ulIndex] * pFilter->psCoefs[i];
+        ullAccumulator += (int64_t)pFilter->psData[ulIndex] * pFilter->psCoefs[i];
     }
 
-    return acullAccumulator >> 16;
+    return ullAccumulator >> 16;
 }

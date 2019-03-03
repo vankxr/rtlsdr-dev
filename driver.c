@@ -53,10 +53,10 @@ rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lG
 
     pSDR->pfSampleHandler = pfSampleHandler;
 
-    pSDR->xDownsampler.ulDownSample = 1;
     pSDR->xDownsampler.i = 0;
     pSDR->xDownsampler.q = 0;
     pSDR->xDownsampler.ulCount = 0;
+    pSDR->xDownsampler.ulDownSample = 1;
 
     while (!IS_VALID_SAMPLERATE(lSampleRate * pSDR->xDownsampler.ulDownSample))
     {
