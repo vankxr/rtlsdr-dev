@@ -105,7 +105,7 @@ void sample_handler(iq16_t xSample)
 
     fwrite(&xSignal.i, sizeof(int16_t), 1, pBasebandFile);
 
-    xSignal.i = mavg_high_pass(pAudioHighPass, xSignal.i); // DC remove
+    //xSignal.i = mavg_high_pass(pAudioHighPass, xSignal.i); // DC remove
     xSignal.i = fir_filter(pAudioLowPass, xSignal.i);
 
     if(iq16_downsample(&xAudioDownsampler, xSignal, &xSignal) != 2)
