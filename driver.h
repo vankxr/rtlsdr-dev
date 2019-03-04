@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <rtl-sdr.h>
+#include "downsampler.h"
 #include "iq.h"
 
 // Valid sample rates from the driver lib:
@@ -20,16 +21,13 @@ typedef void (* rtlsdr_sample_handler_t)(iq16_t);
 typedef struct rtlsdr_t
 {
 	rtlsdr_dev_t *pDevice;
-	iq_downsampler_t xDownsampler;
+	iq16_downsampler_t *pDownsampler;
 	rtlsdr_sample_handler_t pfSampleHandler;
 } rtlsdr_t;
 
 rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lGain, int32_t lPPM, rtlsdr_sample_handler_t pfSampleHandler);
-void driver_rtlsdr_cancel(rtlsdr_t *pSDR);
 void driver_rtlsdr_cleanup(rtlsdr_t *pSDR);
-
-#if !defined(USE_THREAD)
-void driver_rtlsdr_sample(rtlsdr_t *pSDR);
-#endif
+void driver_rtlsdr_sample_start(rtlsdr_t *pSDR);
+void driver_rtlsdr_sample_stop(rtlsdr_t *pSDR);
 
 #endif

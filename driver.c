@@ -14,7 +14,7 @@ static void rtlsdr_callback(uint8_t *pubData, uint32_t ulDataSize, void *pContex
         xSample.i = pubData[i + 0] - 128;
         xSample.q = pubData[i + 1] - 128;
 
-        if(iq16_downsample(&pSDR->xDownsampler, xSample, &xSample) == 2)
+        if(iq16_downsample(pSDR->pDownsampler, xSample, &xSample) == 2)
             pSDR->pfSampleHandler(xSample);
     }
 }
@@ -53,16 +53,13 @@ rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lG
 
     pSDR->pfSampleHandler = pfSampleHandler;
 
-    pSDR->xDownsampler.i = 0;
-    pSDR->xDownsampler.q = 0;
-    pSDR->xDownsampler.ulCount = 0;
-    pSDR->xDownsampler.ulDownSample = 1;
+    uint32_t ulDownsample = 1;
 
-    while (!IS_VALID_SAMPLERATE(lSampleRate * pSDR->xDownsampler.ulDownSample))
+    while (!IS_VALID_SAMPLERATE(lSampleRate * ulDownsample))
     {
-        pSDR->xDownsampler.ulDownSample++;
+        ulDownsample++;
 
-        if (lSampleRate * pSDR->xDownsampler.ulDownSample > 2400000)
+        if (lSampleRate * ulDownsample > 2400000)
         {
             free(pSDR);
 
@@ -84,7 +81,7 @@ rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lG
         return NULL;
     }
 
-    if (rtlsdr_set_sample_rate(pSDR->pDevice, lSampleRate * pSDR->xDownsampler.ulDownSample) < 0)
+    if (rtlsdr_set_sample_rate(pSDR->pDevice, lSampleRate * ulDownsample) < 0)
     {
         free(pSDR);
 
@@ -126,18 +123,20 @@ rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lG
         return NULL;
     }
 
+    pSDR->pDownsampler = iq16_downsampler_init(ulDownsample);
+
+    if(!pSDR->pDownsampler)
+    {
+        free(pSDR);
+
+        return NULL;
+    }
+
 #if defined (USE_THREAD)
     // Create thread
 #endif
 
     return pSDR;
-}
-void driver_rtlsdr_cancel(rtlsdr_t *pSDR)
-{
-    if(!pSDR)
-        return;
-
-    rtlsdr_cancel_async(pSDR->pDevice);
 }
 void driver_rtlsdr_cleanup(rtlsdr_t *pSDR)
 {
@@ -148,13 +147,25 @@ void driver_rtlsdr_cleanup(rtlsdr_t *pSDR)
 
     free(pSDR);
 }
-
-#if !defined(USE_THREAD)
-void driver_rtlsdr_sample(rtlsdr_t *pSDR)
+void driver_rtlsdr_sample_start(rtlsdr_t *pSDR)
 {
     if(!pSDR)
         return;
 
+#if defined (USE_THREAD)
+    // Send signal to thread
+#else
     rtlsdr_read_async(pSDR->pDevice, rtlsdr_callback, pSDR, 0, DRIVER_BUFFER_SIZE);
-}
 #endif
+}
+void driver_rtlsdr_sample_stop(rtlsdr_t *pSDR)
+{
+    if(!pSDR)
+        return;
+
+#if defined (USE_THREAD)
+    // Send signal to thread
+#else
+    rtlsdr_cancel_async(pSDR->pDevice);
+#endif
+}

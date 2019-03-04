@@ -44,14 +44,4 @@ typedef struct iq16_t
 		.q = x.q / y				\
 	})
 
-typedef struct iq_downsampler_t
-{
-	int64_t i;
-	int64_t q;
-    uint32_t ulCount;
-	uint32_t ulDownSample;
-} iq_downsampler_t;
-
-uint8_t iq16_downsample(iq_downsampler_t *pDownsampler, iq16_t xIn, iq16_t *pxOut);
-
 #endif
