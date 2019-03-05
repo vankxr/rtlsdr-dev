@@ -6,16 +6,15 @@
 #include <signal.h>
 #include "debug_macros.h"
 #include "driver.h"
-#include "mavg.h"
 #include "fir.h"
 #include "oscillator.h"
 #include "iq.h"
 
-#define CHANNEL_CARRIER     (102.0 * 1000000) // 100.1 MHz - FM channel center frequency
-#define CHANNEL_BANDWIDTH   (200 * 1000) // 200 kHz - FM channel bandwidth
-#define AUDIO_RATE          (44.1 * 1000) // 44.1 kHz - Target audio sample rate
-#define LO_FREQUENCY        (300 * 1000) // 300 kHz - Sample with an offset to avoid DC spike
-#define SAMPLE_RATE         (1.2 * 1000000) // 1.2 Msps - RTL-SDR sample rate
+#define CHANNEL_CARRIER     (96.4 * 1000000)    // 100.1 MHz - FM channel center frequency
+#define CHANNEL_BANDWIDTH   (200 * 1000)        // 200 kHz - FM channel bandwidth
+#define AUDIO_RATE          (44.1 * 1000)       // 44.1 kHz - Target audio sample rate
+#define LO_FREQUENCY        (300 * 1000)        // 300 kHz - Sample with an offset to avoid DC spike
+#define SAMPLE_RATE         (600 * 1000)        // 1.2 Msps - RTL-SDR sample rate
 #define SAMPLE_FREQUENCY    (CHANNEL_CARRIER + LO_FREQUENCY)
 
 #define _BB_DOWNSAMPLE          (SAMPLE_RATE / CHANNEL_BANDWIDTH)
@@ -28,7 +27,6 @@
 
 rtlsdr_t *pSDR;
 oscillator_t *pChannelLO;
-mavg_filter_t *pAudioHighPass;
 fir_filter_t *pAudioLowPass;
 fir_filter_t *pBasebandLowPass[2];
 iq16_downsampler_t *pBasebandDownsampler;
@@ -107,14 +105,11 @@ void sample_handler(iq16_t xSample)
 
     int16_t sBaseband = fm_demod(xSample); // Demodulate, signal is now real
 
-    sBaseband /= INT8_MAX; // Scale by INT8_MAX since demod returns angles in INT16_MAX range
-
     fwrite(&sBaseband, sizeof(int16_t), 1, pBasebandFile); // Write the baseband data
 
     // Mono audio
     int16_t sAudio = sBaseband;
 
-    sAudio = mavg_high_pass(pAudioHighPass, sAudio); // DC remove
     sAudio = fir_filter(pAudioLowPass, sAudio);
 
     if(int16_downsample(pAudioDownsampler, sAudio, &sAudio) != 2) // Downsample audio to target sample rate
@@ -137,17 +132,7 @@ int main(int argc, char **argv)
 
     DBGPRINTLN_CTX("Init audio components...");
 
-    float fLowCutoff = 10;
-    uint32_t ulHighpassSize = (0.443f * REAL_CHANNEL_BANDWIDTH) / fLowCutoff;
-
-    ulHighpassSize = (ulHighpassSize < 1) ? 1 : ulHighpassSize;
-
-    DBGPRINTLN_CTX("Setting audio filters at %.0f Hz < x < %d Hz", fLowCutoff, AUDIO_LPF_CUTOFF);
-
-    pAudioHighPass = mavg_init(ulHighpassSize);
-
-    if(!pAudioHighPass)
-        return 1;
+    DBGPRINTLN_CTX("Setting audio filters at %d Hz < x", AUDIO_LPF_CUTOFF);
 
     pAudioLowPass = fir_init(audio_lpf_coefs, AUDIO_LPF_TAP_NUM);
 
@@ -202,7 +187,7 @@ int main(int argc, char **argv)
 
     DBGPRINTLN_CTX("Init RTLSDR...");
 
-    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, -1, 0, sample_handler);
+    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, 71, 0, sample_handler);
 
     if(!pSDR)
         return 1;
@@ -217,13 +202,14 @@ int main(int argc, char **argv)
     fclose(pAudioFile);
     fclose(pBasebandFile);
 
-    DBGPRINTLN_CTX("Deinit audio filters...");
-    mavg_cleanup(pAudioHighPass);
+    DBGPRINTLN_CTX("Deinit audio components...");
     fir_cleanup(pAudioLowPass);
+    int16_downsampler_cleanup(pAudioDownsampler);
 
-    DBGPRINTLN_CTX("Deinit baseband filters...");
+    DBGPRINTLN_CTX("Deinit baseband components...");
     fir_cleanup(pBasebandLowPass[0]);
     fir_cleanup(pBasebandLowPass[1]);
+    iq16_downsampler_cleanup(pBasebandDownsampler);
 
     DBGPRINTLN_CTX("Deinit LO...");
     oscillator_cleanup(pChannelLO);

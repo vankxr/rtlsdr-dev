@@ -14,8 +14,8 @@ typedef struct oscillator_t
     iq16_t *pData;
 } oscillator_t;
 
-oscillator_t *oscillator_init(uint32_t ulSampleRate, uint32_t ulFreqneucy);
+oscillator_t *oscillator_init(uint32_t ulSampleRate, int32_t lFreqneucy);
 void oscillator_cleanup(oscillator_t *pOscillator);
-iq16_t oscillator_get(oscillator_t *pOscillator, uint32_t ulPhaseOffset);
+iq16_t oscillator_get(oscillator_t *pOscillator, int32_t lPhaseOffset);
 
 #endif

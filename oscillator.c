@@ -1,6 +1,6 @@
 #include "oscillator.h"
 
-oscillator_t *oscillator_init(uint32_t ulSampleRate, uint32_t ulFreqneucy)
+oscillator_t *oscillator_init(uint32_t ulSampleRate, int32_t lFreqneucy)
 {
     oscillator_t *pOscillator = (oscillator_t *)malloc(sizeof(oscillator_t));
 
@@ -9,7 +9,9 @@ oscillator_t *oscillator_init(uint32_t ulSampleRate, uint32_t ulFreqneucy)
 
     memset(pOscillator, 0, sizeof(oscillator_t));
 
-    pOscillator->ulSteps = ulSampleRate / ulFreqneucy;
+    int32_t lSteps = ulSampleRate / lFreqneucy;
+
+    pOscillator->ulSteps = abs(lSteps);
     pOscillator->ulCurrentPhase = 0;
 
     pOscillator->pData = (iq16_t *)malloc(sizeof(iq16_t) * pOscillator->ulSteps);
@@ -23,8 +25,8 @@ oscillator_t *oscillator_init(uint32_t ulSampleRate, uint32_t ulFreqneucy)
 
     for (uint32_t t = 0; t < pOscillator->ulSteps; t++)
     {
-        pOscillator->pData[t].i = INT8_MAX * cos(2 * M_PI * (float)t / pOscillator->ulSteps);
-        pOscillator->pData[t].q = INT8_MAX * sin(2 * M_PI * (float)t / pOscillator->ulSteps);
+        pOscillator->pData[t].i = INT8_MAX * cos(2 * M_PI * (float)t / lSteps);
+        pOscillator->pData[t].q = INT8_MAX * sin(2 * M_PI * (float)t / lSteps);
     }
 
     return pOscillator;
@@ -39,7 +41,7 @@ void oscillator_cleanup(oscillator_t *pOscillator)
 
     free(pOscillator);
 }
-iq16_t oscillator_get(oscillator_t *pOscillator, uint32_t ulPhaseOffset)
+iq16_t oscillator_get(oscillator_t *pOscillator, int32_t lPhaseOffset)
 {
     iq16_t xResult = {0, 0};
 
@@ -49,9 +51,9 @@ iq16_t oscillator_get(oscillator_t *pOscillator, uint32_t ulPhaseOffset)
     if(!pOscillator->pData)
         return xResult;
 
-    xResult = pOscillator->pData[pOscillator->ulCurrentPhase + ulPhaseOffset];
+    xResult = pOscillator->pData[pOscillator->ulCurrentPhase + lPhaseOffset];
 
-    pOscillator->ulCurrentPhase = (pOscillator->ulCurrentPhase + 1) % (abs(pOscillator->ulSteps));
+    pOscillator->ulCurrentPhase = (pOscillator->ulCurrentPhase + 1) % pOscillator->ulSteps;
 
     return xResult;
 }
