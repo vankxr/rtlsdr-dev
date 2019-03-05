@@ -131,6 +131,19 @@ uint8_t stereo_audio_demod(int16_t sBaseband, int16_t sStereoPilot, int16_t *psL
 
     return 1;
 }
+uint8_t rds_demod(int16_t sBaseband, int16_t sRDSPilot, uint8_t *pubBit)
+{
+    if(!pubBit)
+        return 0;
+
+    int16_t sRDS = sBaseband;
+
+    sRDSPilot >>= 6; // Suppress noise from the recovered carrier
+
+    sRDS = fir_filter(pRDSBandPass, sRDS);
+
+    sRDS = ((int32_t)sRDS * sRDSPilot) / INT8_MAX;
+}
 
 void sample_handler(iq16_t xSample)
 {
