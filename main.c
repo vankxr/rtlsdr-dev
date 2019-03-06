@@ -180,15 +180,11 @@ uint8_t rds_demod(int16_t sBaseband, int16_t sRDSPilot, uint8_t *pubBit)
 
     iq16_t xLO = oscillator_get(pRDSLO, 0);
 
-    // Multiply once, this gives us the baseband quadrature signal, and a spectrum centered on 2*fLO
+    // Multiply once, this gives us the complex baseband signal, and a spectrum centered on 2*fLO
     xRDS = IQ16_PRODUCT(xRDS, xLO);
     xRDS = IQ16_SCALAR_QUOTIENT(xRDS, INT8_MAX);
 
     // Filter
-
-    // Multiply again, this gives us the original quadrature signal
-    xRDS = IQ16_PRODUCT(xRDS, xLO);
-    xRDS = IQ16_SCALAR_QUOTIENT(xRDS, INT8_MAX);
 
     // Now get the phase and decimate to fBitRate
 
