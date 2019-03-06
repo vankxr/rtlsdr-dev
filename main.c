@@ -10,23 +10,30 @@
 #include "oscillator.h"
 #include "iq.h"
 
-#define CHANNEL_CARRIER     (101.4 * 1000000)   // 100.1 MHz - FM channel center frequency
-#define CHANNEL_BANDWIDTH   (200 * 1000)        // 200 kHz - FM channel bandwidth
-#define AUDIO_RATE          (44.1 * 1000)       // 44.1 kHz - Target audio sample rate
-#define LO_FREQUENCY        (300 * 1000)        // 300 kHz - Sample with an offset to avoid DC spike
-#define SAMPLE_RATE         (1.2 * 1000000)     // 1.2 Msps - RTL-SDR sample rate
+#define AUDIO_RATE          (47.5 * 1000)       // 44.1 kHz - Target audio sample rate
+#define RDS_BITRATE         (1.1875 * 1000)     // 1.1875 kbps - RDS bit rate
+#define RDS_SYMRATE         (2 * RDS_BITRATE)   // RDS symbol rate (2 symbols per bit)
+#define CHANNEL_CARRIER     (100.1 * 1000000)   // 100.1 MHz - FM channel center frequency
+#define CHANNEL_BANDWIDTH   (190 * 1000)        // 190 kHz - FM channel bandwidth
+#define LO_FREQUENCY        (380 * 1000)        // 380 kHz - Sample with an offset to avoid DC spike
+#define SAMPLE_RATE         (1.9 * 1000000)     // 1.9 Msps - RTL-SDR sample rate
 #define SAMPLE_FREQUENCY    (CHANNEL_CARRIER + LO_FREQUENCY)
 
-#define _BB_DOWNSAMPLE          (SAMPLE_RATE / CHANNEL_BANDWIDTH)
-#define BB_DOWNSAMPLE           (uint32_t)_BB_DOWNSAMPLE
-#define REAL_CHANNEL_BANDWIDTH  (SAMPLE_RATE / BB_DOWNSAMPLE)
+#define _BB_DOWNSAMPLE              (SAMPLE_RATE / CHANNEL_BANDWIDTH)
+#define BB_DOWNSAMPLE               (uint32_t)_BB_DOWNSAMPLE
+#define REAL_CHANNEL_SAMPLE_RATE    (SAMPLE_RATE / BB_DOWNSAMPLE)
 
-#define _AUDIO_DOWNSAMPLE       (REAL_CHANNEL_BANDWIDTH / AUDIO_RATE)
-#define AUDIO_DOWNSAMPLE        (uint32_t)_AUDIO_DOWNSAMPLE
-#define REAL_AUDIO_RATE         (REAL_CHANNEL_BANDWIDTH / AUDIO_DOWNSAMPLE)
+#define _AUDIO_DOWNSAMPLE           (REAL_CHANNEL_SAMPLE_RATE / AUDIO_RATE)
+#define AUDIO_DOWNSAMPLE            (uint32_t)_AUDIO_DOWNSAMPLE
+#define REAL_AUDIO_SAMPLE_RATE      (REAL_CHANNEL_SAMPLE_RATE / AUDIO_DOWNSAMPLE)
+
+#define _RDS_DOWNSAMPLE             (REAL_CHANNEL_SAMPLE_RATE / (2 * RDS_SYMRATE))
+#define RDS_DOWNSAMPLE              (uint32_t)_RDS_DOWNSAMPLE
+#define REAL_RDS_SAMPLE_RATE        (REAL_CHANNEL_SAMPLE_RATE / RDS_DOWNSAMPLE)
 
 rtlsdr_t *pSDR;
 oscillator_t *pChannelLO;
+oscillator_t *pRDSLO;
 fir_filter_t *pPilot19kBandPass;
 fir_filter_t *pPilot38kHighPass;
 fir_filter_t *pPilot57kHighPass;
@@ -35,8 +42,10 @@ fir_filter_t *pRDSBandPass;
 fir_filter_t *pAudioLowPass[2];
 iq16_downsampler_t *pBasebandDownsampler;
 int16_downsampler_t *pAudioDownsampler[2];
+int16_downsampler_t *pRDSDownsampler;
 FILE *pBasebandFile;
 FILE *pAudioFile;
+FILE *pRDSFile;
 
 uint16_t abs16(int16_t sValue)
 {
@@ -108,7 +117,7 @@ uint8_t stereo_audio_demod(int16_t sBaseband, int16_t sStereoPilot, int16_t *psL
     // Stereo audio (Left - Right)
     int16_t sStereoAudio = sBaseband;
 
-    sStereoPilot >>= 6; // Suppress noise from the recovered carrier
+    sStereoPilot >>= 2; // Suppress noise from the recovered carrier
 
     sStereoAudio = fir_filter(pStereoBandPass, sStereoAudio);
 
@@ -138,11 +147,79 @@ uint8_t rds_demod(int16_t sBaseband, int16_t sRDSPilot, uint8_t *pubBit)
 
     int16_t sRDS = sBaseband;
 
-    sRDSPilot >>= 6; // Suppress noise from the recovered carrier
-
     sRDS = fir_filter(pRDSBandPass, sRDS);
 
     sRDS = ((int32_t)sRDS * sRDSPilot) / INT8_MAX;
+
+    // Downsample
+    if(int16_downsample(pRDSDownsampler, sRDS, &sRDS) != 2)
+        return 0;
+
+    iq16_t xRDS;
+
+    xRDS.i = sRDS;
+    xRDS.q = sRDS;
+
+    iq16_t xLO = oscillator_get(pRDSLO, 0);
+
+    xRDS = IQ16_PRODUCT(xRDS, xLO);
+    xRDS = IQ16_SCALAR_QUOTIENT(xRDS, INT8_MAX);
+
+    //static iq16_t xPrevSample = {0, 0};
+
+    //iq16_t xDiff = IQ16_PRODUCT(xRDS, IQ16_CONJUGATE(xPrevSample));
+
+    //xPrevSample = xRDS;
+
+    int16_t ang = atan2_int16(xRDS.q, xRDS.i);
+
+    float fang = (float)ang * 360.f / (float)TAU;
+
+    uint8_t xbit = xRDS.i > 0;
+
+    static uint8_t count = 0;
+    static uint8_t acc = 0;
+
+    count++;
+    acc += xbit;
+    //uint8_t bit2 = xDiff.q > 0;
+
+    //if(bit1 != bit2)
+     //   DBGPRINTLN_CTX("NO MATCH %.2f %hu", fang, xDiff.i);
+
+    char buf[16];
+
+    fwrite(buf, sizeof(char), snprintf(buf, 16, "(%hi,%hi) ", xRDS.i, xRDS.q), pRDSFile);
+    //fwrite(buf, sizeof(char), snprintf(buf, 16, "%hhu", xbit), pRDSFile);
+
+    if(count == 2)
+    {
+        //fwrite(buf, sizeof(char), snprintf(buf, 16, " (%hhu)", acc), pRDSFile);
+        acc = round((float)acc / count);
+        count = 0;
+    }
+    else
+        return 0;
+
+    //fwrite(buf, sizeof(char), snprintf(buf, 16, " = %hhu, ", acc), pRDSFile);
+
+    static uint8_t prev = 0;
+    static uint8_t state = 0;
+
+    if(state == 0)
+    {
+        prev = xbit;
+        state = 1;
+    }
+    else if(state == 1)
+    {
+        *pubBit = xbit != prev;
+        state = 0;
+    }
+
+    acc = 0;
+
+    return !state;
 }
 
 void sample_handler(iq16_t xSample)
@@ -170,9 +247,9 @@ void sample_handler(iq16_t xSample)
     sPilot38k = fir_filter(pPilot38kHighPass, sPilot38k);
 
     //// RDS Pilot
-    //int16_t sPilot57k = ((int32_t)sPilot38k * sPilot19k) / INT8_MAX;
+    int16_t sPilot57k = ((int32_t)sPilot38k * sPilot19k) / INT8_MAX;
 
-    //sPilot57k = fir_filter(pPilot57kHighPass, sPilot57k);
+    sPilot57k = fir_filter(pPilot57kHighPass, sPilot57k);
 
     // Audio
     int16_t sLeft, sRight;
@@ -181,6 +258,16 @@ void sample_handler(iq16_t xSample)
     {
         fwrite(&sLeft, sizeof(int16_t), 1, pAudioFile);
         fwrite(&sRight, sizeof(int16_t), 1, pAudioFile);
+    }
+
+    // RDS
+    uint8_t ubBit;
+
+    if(rds_demod(sBaseband, sPilot57k, &ubBit))
+    {
+        char c = ubBit ? '1' : '0';
+
+        fwrite(&c, sizeof(char), 1, stdout);
     }
 }
 
@@ -215,7 +302,7 @@ int main(int argc, char **argv)
     if(!pAudioLowPass[1])
         return 1;
 
-    DBGPRINTLN_CTX("Setting audio downsample factor to %u, audio rate %.2f kHz", AUDIO_DOWNSAMPLE, (float)REAL_AUDIO_RATE / 1000.f);
+    DBGPRINTLN_CTX("Setting audio downsample factor to %u, audio sample rate %.2f kHz", AUDIO_DOWNSAMPLE, (float)REAL_AUDIO_SAMPLE_RATE / 1000.f);
 
     pAudioDownsampler[0] = int16_downsampler_init(AUDIO_DOWNSAMPLE);
 
@@ -227,9 +314,25 @@ int main(int argc, char **argv)
     if(!pAudioDownsampler[1])
         return 1;
 
+    DBGPRINTLN_CTX("Init RDS components...");
+
+    DBGPRINTLN_CTX("Setting RDS downsample factor to %u, RDS sample rate %.1f Hz", RDS_DOWNSAMPLE, (float)REAL_RDS_SAMPLE_RATE);
+
+    pRDSDownsampler = int16_downsampler_init(RDS_DOWNSAMPLE);
+
+    if(!pRDSDownsampler)
+        return 1;
+
+    DBGPRINTLN_CTX("Setting RDS LO frequency to %.1f Hz", (float)RDS_SYMRATE);
+
+    pRDSLO = oscillator_init(REAL_RDS_SAMPLE_RATE, RDS_SYMRATE);
+
+    if(!pRDSLO)
+        return 1;
+
     DBGPRINTLN_CTX("Init baseband components...");
 
-    DBGPRINTLN_CTX("Setting baseband downsample factor to %u, channel bandwidth %.2f kHz", BB_DOWNSAMPLE, (float)REAL_CHANNEL_BANDWIDTH / 1000.f);
+    DBGPRINTLN_CTX("Setting baseband downsample factor to %u, channel sample rate %.2f kHz", BB_DOWNSAMPLE, (float)REAL_CHANNEL_SAMPLE_RATE / 1000.f);
 
     pBasebandDownsampler = iq16_downsampler_init(BB_DOWNSAMPLE);
 
@@ -271,9 +374,7 @@ int main(int argc, char **argv)
     if(!pRDSBandPass)
         return 1;
 
-    DBGPRINTLN_CTX("Init LO...");
-
-    DBGPRINTLN_CTX("Setting LO frequency to %.2f kHz", (float)LO_FREQUENCY / 1000.f);
+    DBGPRINTLN_CTX("Setting baseband LO frequency to %.2f kHz", (float)LO_FREQUENCY / 1000.f);
 
     pChannelLO = oscillator_init(SAMPLE_RATE, LO_FREQUENCY);
 
@@ -281,14 +382,20 @@ int main(int argc, char **argv)
         return 1;
 
     DBGPRINTLN_CTX("Init output files...");
+
+    pBasebandFile = fopen("./bb.raw", "w");
+
+    if(!pBasebandFile)
+        return 1;
+
     pAudioFile = fopen("./audio_out.raw", "w");
 
     if(!pAudioFile)
         return 1;
 
-    pBasebandFile = fopen("./bb.raw", "w");
+    pRDSFile = fopen("./rds.raw", "w");
 
-    if(!pBasebandFile)
+    if(!pRDSFile)
         return 1;
 
     DBGPRINTLN_CTX("Init RTLSDR...");
@@ -297,7 +404,7 @@ int main(int argc, char **argv)
     DBGPRINTLN_CTX("Tuning SDR to %.2f MHz", (float)SAMPLE_FREQUENCY / 1000000.f);
     DBGPRINTLN_CTX("Setting SDR bandwidth to +/- %.2f kHz", (float)SAMPLE_RATE / 2.f / 1000.f);
 
-    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, -1, 0, sample_handler);
+    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, 71, 0, sample_handler);
 
     if(!pSDR)
         return 1;
@@ -309,14 +416,9 @@ int main(int argc, char **argv)
     driver_rtlsdr_cleanup(pSDR);
 
     DBGPRINTLN_CTX("Deinit output files...");
-    fclose(pAudioFile);
     fclose(pBasebandFile);
-
-    DBGPRINTLN_CTX("Deinit audio components...");
-    fir_cleanup(pAudioLowPass[0]);
-    fir_cleanup(pAudioLowPass[1]);
-    int16_downsampler_cleanup(pAudioDownsampler[0]);
-    int16_downsampler_cleanup(pAudioDownsampler[1]);
+    fclose(pAudioFile);
+    fclose(pRDSFile);
 
     DBGPRINTLN_CTX("Deinit baseband components...");
     fir_cleanup(pPilot19kBandPass);
@@ -325,9 +427,17 @@ int main(int argc, char **argv)
     fir_cleanup(pStereoBandPass);
     fir_cleanup(pRDSBandPass);
     iq16_downsampler_cleanup(pBasebandDownsampler);
-
-    DBGPRINTLN_CTX("Deinit LO...");
     oscillator_cleanup(pChannelLO);
+
+    DBGPRINTLN_CTX("Deinit RDS components...");
+    int16_downsampler_cleanup(pRDSDownsampler);
+    oscillator_cleanup(pRDSLO);
+
+    DBGPRINTLN_CTX("Deinit audio components...");
+    fir_cleanup(pAudioLowPass[0]);
+    fir_cleanup(pAudioLowPass[1]);
+    int16_downsampler_cleanup(pAudioDownsampler[0]);
+    int16_downsampler_cleanup(pAudioDownsampler[1]);
 
 
     return 0;

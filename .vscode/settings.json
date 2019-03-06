@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "debug_macros.h": "c"
+        "debug_macros.h": "c",
+        "fir.h": "c"
     }
 }
