@@ -74,6 +74,13 @@ rtlsdr_t *driver_rtlsdr_init(int32_t lFrequency, int32_t lSampleRate, int32_t lG
         return NULL;
     }
 
+    if (rtlsdr_set_bias_tee(pSDR->pDevice, 0) < 0)
+    {
+        free(pSDR);
+
+        return NULL;
+    }
+
     if (rtlsdr_set_center_freq(pSDR->pDevice, lFrequency) < 0) // Set freq before sample rate to avoid "PLL NOT LOCKED"
     {
         free(pSDR);

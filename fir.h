@@ -6,6 +6,60 @@
 #include <string.h>
 
 /*
+    fSample: 1900000 Hz
+
+    * 0 Hz - 190000 Hz
+        gain = 1
+        desired ripple = 1 dB
+        actual ripple = 1 dB
+
+    * 300000 Hz - 950000 Hz
+        gain = 0
+        desired attenuation = -50 dB
+        actual attenuation = -50 dB
+*/
+#define BB_LPF_CUTOFF 300000
+#define BB_LPF_TAP_NUM 35
+static int16_t bb_lpf_coefs[BB_LPF_TAP_NUM] =
+{
+    -43,
+    -213,
+    -323,
+    -376,
+    -236,
+    91,
+    482,
+    698,
+    515,
+    -115,
+    -952,
+    -1510,
+    -1251,
+    124,
+    2463,
+    5135,
+    7257,
+    8065,
+    7257,
+    5135,
+    2463,
+    124,
+    -1251,
+    -1510,
+    -952,
+    -115,
+    515,
+    698,
+    482,
+    91,
+    -236,
+    -376,
+    -323,
+    -213,
+    -43
+};
+
+/*
     fSample: 47500 Hz
 
     * 0 Hz - 15000 Hz

@@ -1,5 +1,5 @@
 TARGET = rtl_app
-LIBS = -lm $(shell pkg-config --libs librtlsdr) -pthread
+LIBS = -lm $(shell pkg-config --libs librtlsdr) -lmp3lame -pthread
 CC = gcc
 CFLAGS = -g -std=gnu11 -Os -W $(shell pkg-config --cflags librtlsdr)
 
