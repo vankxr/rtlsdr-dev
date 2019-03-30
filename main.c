@@ -305,11 +305,14 @@ void sample_handler(iq16_t xSample)
     xSample = IQ16_SCALAR_QUOTIENT(xSample, INT8_MAX); // Scale by INT8_MAX
 
     // LPF to reduce aliasing from nearby channels
-    xSample.i = fir_filter(pBasebandLowPass[0], xSample.i);
-    xSample.q = fir_filter(pBasebandLowPass[1], xSample.q);
+    fir_put(pBasebandLowPass[0], xSample.i);
+    fir_put(pBasebandLowPass[1], xSample.q);
 
     if(iq16_downsample(pBasebandDownsampler, xSample, &xSample) != 2) // Downsample to the channel bandwidth
         return;
+
+    xSample.i = fir_get(pBasebandLowPass[0]);
+    xSample.q = fir_get(pBasebandLowPass[1]);
 
     channel_handler(xSample);
 }

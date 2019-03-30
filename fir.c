@@ -55,7 +55,20 @@ void fir_cleanup(fir_filter_t *pFilter)
 
     free(pFilter);
 }
-int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample)
+void fir_put(fir_filter_t *pFilter, int16_t sSample)
+{
+    if(!pFilter)
+        return;
+
+    if(!pFilter->psData)
+        return;
+
+    pFilter->psData[pFilter->ulLastIndex++] = sSample;
+
+    if(pFilter->ulLastIndex >= pFilter->ulTaps)
+        pFilter->ulLastIndex = 0;
+}
+int16_t fir_get(fir_filter_t *pFilter)
 {
     if(!pFilter)
         return 0;
@@ -65,11 +78,6 @@ int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample)
 
     if(!pFilter->psCoefs)
         return 0;
-
-    if(pFilter->ulLastIndex >= pFilter->ulTaps)
-        pFilter->ulLastIndex = 0;
-
-    pFilter->psData[pFilter->ulLastIndex++] = sSample;
 
     int64_t llAccumulator = 0;
     uint32_t ulIndex = pFilter->ulLastIndex;

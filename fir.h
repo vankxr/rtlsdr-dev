@@ -831,6 +831,13 @@ typedef struct fir_filter_t
 
 fir_filter_t *fir_init(int16_t *pusCoefs, uint32_t ulTaps);
 void fir_cleanup(fir_filter_t *pFilter);
-int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample);
+void fir_put(fir_filter_t *pFilter, int16_t sSample);
+int16_t fir_get(fir_filter_t *pFilter);
+static inline int16_t fir_filter(fir_filter_t *pFilter, int16_t sSample)
+{
+    fir_put(pFilter, sSample);
+
+    return fir_get(pFilter);
+}
 
 #endif
