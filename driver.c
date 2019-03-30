@@ -162,7 +162,7 @@ void driver_rtlsdr_sample_start(rtlsdr_t *pSDR)
 #if defined (USE_THREAD)
     // Send signal to thread
 #else
-    rtlsdr_read_async(pSDR->pDevice, rtlsdr_callback, pSDR, 0, DRIVER_BUFFER_SIZE);
+    rtlsdr_read_async(pSDR->pDevice, rtlsdr_callback, pSDR, DRIVER_BUFFER_COUNT, DRIVER_BUFFER_SIZE);
 #endif
 }
 void driver_rtlsdr_sample_stop(rtlsdr_t *pSDR)

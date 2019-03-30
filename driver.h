@@ -13,7 +13,8 @@
 // 900001 - 3200000 Hz
 // sample loss is to be expected for rates > 2400000
 #define IS_VALID_SAMPLERATE(x) ((x >= 225001 && x <= 300000) || (x >= 900001 && x <= 3200000))
-#define DRIVER_BUFFER_SIZE (256 * 1024)
+#define DRIVER_BUFFER_COUNT 10
+#define DRIVER_BUFFER_SIZE (256 * 1024) // 256 kB
 //#define USE_THREAD
 
 typedef void (* rtlsdr_sample_handler_t)(iq16_t);
