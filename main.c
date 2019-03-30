@@ -14,7 +14,7 @@
 
 #define AUDIO_RATE          (47.5 * 1000)       // 47.5 kHz - Target audio sample rate (should be between 44 kHz and 48 kHz, 47,5 kHz is a multiple of the sample rate)
 #define RDS_BITRATE         (1.1875 * 1000)     // 1.1875 kbps - RDS bit rate
-#define CHANNEL_CARRIER     (101.4 * 1000000)   // 101.4 MHz - FM channel center frequency
+#define CHANNEL_CARRIER     (97.4 * 1000000)    // 97.4 MHz - FM channel center frequency
 #define CHANNEL_BANDWIDTH   (190 * 1000)        // 190 kHz - FM channel bandwidth (should be 200 kHz but 190 kHz is more convenient and we do not lose any important information)
 #define LO_FREQUENCY        (380 * 1000)        // 380 kHz - LO frequency to shift the signal back to baseband after sampling
 #define SAMPLE_RATE         (1.9 * 1000000)     // 1.9 Msps - RTL-SDR sample rate (multiple of the demodulated FM baseband subcarriers)
