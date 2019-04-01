@@ -14,7 +14,7 @@
 
 #define AUDIO_RATE          (47.5 * 1000)       // 47.5 kHz - Target audio sample rate (should be between 44 kHz and 48 kHz, 47,5 kHz is a multiple of the sample rate)
 #define RDS_BITRATE         (1.1875 * 1000)     // 1.1875 kbps - RDS bit rate
-#define CHANNEL_CARRIER     (97.4 * 1000000)    // 97.4 MHz - FM channel center frequency
+#define CHANNEL_CARRIER     (90.8 * 1000000)    // 100.1 MHz - FM channel center frequency
 #define CHANNEL_BANDWIDTH   (190 * 1000)        // 190 kHz - FM channel bandwidth (should be 200 kHz but 190 kHz is more convenient and we do not lose any important information)
 #define LO_FREQUENCY        (380 * 1000)        // 380 kHz - LO frequency to shift the signal back to baseband after sampling
 #define SAMPLE_RATE         (1.9 * 1000000)     // 1.9 Msps - RTL-SDR sample rate (multiple of the demodulated FM baseband subcarriers)
@@ -140,8 +140,6 @@ uint8_t stereo_audio_demod(int16_t sBaseband, int16_t sStereoPilot, int16_t *psL
 
     // Stereo audio (Left - Right)
     int16_t sStereoAudio = sBaseband;
-
-    sStereoPilot >>= 4; // Suppress noise from the recovered carrier, otherwise the L-R will ruin the overall quality
 
     sStereoAudio = fir_filter(pStereoBandPass, sStereoAudio); // Bandpass the L-R subcarrier
 
@@ -497,7 +495,7 @@ int main(int argc, char **argv)
     DBGPRINTLN_CTX("  Tuning SDR to %.2f MHz", (float)SAMPLE_FREQUENCY / 1000000.f);
     DBGPRINTLN_CTX("  Setting SDR bandwidth to +/- %.2f kHz", (float)SAMPLE_RATE / 2.f / 1000.f);
 
-    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, 192, 0, sample_handler);
+    pSDR = driver_rtlsdr_init(SAMPLE_FREQUENCY, SAMPLE_RATE, -1, 0, sample_handler);
 
     if(!pSDR)
         return 1;
