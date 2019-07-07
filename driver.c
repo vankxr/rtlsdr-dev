@@ -11,8 +11,8 @@ static void rtlsdr_callback(uint8_t *pubData, uint32_t ulDataSize, void *pContex
     {
         iq16_t xSample;
 
-        xSample.i = pubData[i + 0] - 128;
-        xSample.q = pubData[i + 1] - 128;
+        xSample.i = pubData[i + 0] - 127;
+        xSample.q = pubData[i + 1] - 127;
 
         if(iq16_downsample(pSDR->pDownsampler, xSample, &xSample) == 2)
             pSDR->pfSampleHandler(xSample);

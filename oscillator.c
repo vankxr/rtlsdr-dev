@@ -9,7 +9,7 @@ oscillator_t *oscillator_init(uint32_t ulSampleRate, int32_t lFreqneucy)
 
     memset(pOscillator, 0, sizeof(oscillator_t));
 
-    int32_t lSteps = ulSampleRate / lFreqneucy;
+    int32_t lSteps = (int32_t)ulSampleRate / lFreqneucy;
 
     pOscillator->ulSteps = abs(lSteps);
     pOscillator->ulCurrentPhase = 0;
