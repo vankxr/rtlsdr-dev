@@ -30,7 +30,7 @@ OBJDUMP = objdump
 GDB = gdb
 
 # Compillers & Linker flags
-ASFLAGS = 
+ASFLAGS =
 CFLAGS = $(addprefix -I,$(INCLUDEDIRSTRUCT)) -std=gnu11 -Os -W $(shell pkg-config --cflags librtlsdr)
 CXXFLAGS = $(addprefix -I,$(INCLUDEDIRSTRUCT)) -std=gnu11 -Os -W $(shell pkg-config --cflags librtlsdr)
 LDFLAGS =
